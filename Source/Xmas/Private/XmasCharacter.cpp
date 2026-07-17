@@ -41,6 +41,7 @@ void AXmasCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
         EnhancedInputComponent->BindAction(JumpAction,              ETriggerEvent::Completed,this,      &AXmasCharacter::StopJumping);
         EnhancedInputComponent->BindAction(InteractAction,          ETriggerEvent::Started, this,       &AXmasCharacter::Interact);
         EnhancedInputComponent->BindAction(TogglePlacementAction,   ETriggerEvent::Started, this,       &AXmasCharacter::TogglePlacement);
+        EnhancedInputComponent->BindAction(PrimaryAction,           ETriggerEvent::Started, this,       &AXmasCharacter::HandPrimary);
     }
 }
 
@@ -78,6 +79,20 @@ void AXmasCharacter::Interact()
     if (GEngine)
     {
         GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Yellow, TEXT("Interacted!"));
+    }
+}
+
+void AXmasCharacter::HandPrimary()
+{
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Primary Action Started"));
+    }
+    if (bIsPlacementMode && ActivePreviewActor)
+    {
+        ActivePreviewActor->PlaceProp();
+        ActivePreviewActor = nullptr;
+        bIsPlacementMode = false;
     }
 }
 

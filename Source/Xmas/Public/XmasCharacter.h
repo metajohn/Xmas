@@ -34,6 +34,7 @@ protected:
 	void Look(const FInputActionValue& Value);
 
 	void Interact();
+	void HandPrimary();
 	void TogglePlacement();
 	// State
 	bool bIsPlacementMode = false;
@@ -73,4 +74,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	UInputAction* TogglePlacementAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	UInputAction* PrimaryAction;
 };
