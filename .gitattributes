@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Ignore the automated Visual Studio upgrade log files
+UpgradeLog*.* linguist-vendored
+*.htm linguist-vendored
+*.xml linguist-vendored
