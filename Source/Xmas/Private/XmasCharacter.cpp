@@ -2,6 +2,8 @@
 #include "Camera/CameraComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "GameInteractable.h"
+#include "InteractableComponent.h"
 #include "XmasActor.h"
 
 AXmasCharacter::AXmasCharacter()
@@ -79,6 +81,7 @@ void AXmasCharacter::Interact()
     if (GEngine)
     {
         GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Yellow, TEXT("Interacted!"));
+        PerformInteractionCheck();
     }
 }
 
@@ -180,6 +183,54 @@ void AXmasCharacter::PlacementPreviewTTick()
     }
 }
 
+void AXmasCharacter::PerformInteractionCheck()
+{
+    if (!GetWorld() || !GetController()) return;
+
+    // get players point of view
+    FVector CameraLocation;
+    FRotator CameraRotation;
+    GetController()->GetPlayerViewPoint(CameraLocation, CameraRotation);
+
+    // Calculate the start and end of raycast
+    FVector TraceStart = CameraLocation;
+    FVector TraceEnd = TraceStart + (CameraRotation.Vector() * InteractionDistance);
+
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(this);
+
+    FHitResult HitResult;
+
+    bool bHit = GetWorld()->LineTraceSingleByChannel(
+        HitResult,
+        TraceStart,
+        TraceEnd,
+        ECC_Visibility,
+        QueryParams
+    );
+
+    DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Green, false, 1.f, 0, 1.f);
+
+    if (bHit && HitResult.GetActor())
+    {
+        AActor* HitActor = HitResult.GetActor();
+
+        if (HitActor->Implements<UGameInteractable>())
+        {
+            IGameInteractable::Execute_Interact(HitActor, this);
+        }
+        else
+        {
+            UActorComponent* InteractableComp = HitActor->GetComponentByClass(UInteractableComponent::StaticClass());
+            if (InteractableComp && InteractableComp->Implements<UGameInteractable>())
+            {
+                IGameInteractable::Execute_Interact(InteractableComp, this);
+            }
+        }
+    }
+}
+
 void AXmasCharacter::Tick(float DeltaTime)
 {
 }
+

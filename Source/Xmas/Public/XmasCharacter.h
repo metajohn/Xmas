@@ -48,6 +48,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
 	TSubclassOf<class AXmasActor> PropToSpawnClass;
 
+	void PerformInteractionCheck();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+	float InteractionDistance = 250.f;
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
