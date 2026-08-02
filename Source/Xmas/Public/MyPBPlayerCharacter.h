@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
-#include "XmasCharacter.generated.h"
+#include "Character/PBPlayerCharacter.h"
+#include "MyPBPlayerCharacter.generated.h"
 
 class UCameraComponent;
 class UInputMappingContext;
@@ -13,19 +13,28 @@ struct FInputActionValue;
 
 class AXmasActor;
 
+/**
+ * 
+ */
 UCLASS()
-class XMAS_API AXmasCharacter : public ACharacter
+class XMAS_API AMyPBPlayerCharacter : public APBPlayerCharacter
 {
 	GENERATED_BODY()
+public:
+	virtual void Tick(float DeltaTime) override;
 
 public:
-	// Sets default values for this character's properties
-	AXmasCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	virtual void Jump() override;
 
-	virtual void Tick(float DeltaTime) override;
+protected:
+	AMyPBPlayerCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 protected:
 	virtual void BeginPlay() override;
+
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FirstPersonCamera;
 
 	//movement
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -37,15 +46,17 @@ protected:
 	void Interact();
 	void HandPrimary();
 
-//PLACEMENT
+	//PLACEMENT
 protected:
 	void TogglePlacement();
-	
+
+
 	bool bIsPlacementMode = false;
 
 	FTimerHandle PlacementTimerHandle;
 
 	void PlacementPreviewTick();
+
 	UPROPERTY()
 	AXmasActor* ActivePreviewActor;
 
@@ -57,13 +68,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
 	float InteractionDistance = 250.f;
 
-public:	
-
-	// First-Person Camera
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* FirstPersonCamera;
-
-//INPUT
+	//INPUT
 public:
 	// Enhanced Input Assets (assigned in the Blueprint child later)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
@@ -86,4 +91,5 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	UInputAction* PrimaryAction;
+
 };

@@ -1,15 +1,21 @@
-#include "XmasCharacter.h"
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
+#include "MyPBPlayerCharacter.h"
+
 #include "Camera/CameraComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "DrawDebugHelpers.h"
 
 #include "GameInteractable.h"
 #include "InteractableComponent.h"
 #include "PhysicsMovementComponent.h"
 #include "XmasActor.h"
 
-AXmasCharacter::AXmasCharacter(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer.SetDefaultSubobjectClass<UPhysicsMovementComponent>(ACharacter::CharacterMovementComponentName))
+AMyPBPlayerCharacter::AMyPBPlayerCharacter(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer)
 {
     PrimaryActorTick.bCanEverTick = true;
 
@@ -18,9 +24,20 @@ AXmasCharacter::AXmasCharacter(const FObjectInitializer& ObjectInitializer) : Su
     FirstPersonCamera->SetupAttachment(RootComponent);
     FirstPersonCamera->SetRelativeLocation(FVector(0.f, 0.f, 64.f));
     FirstPersonCamera->bUsePawnControlRotation = true; // Camera rotates with mouse
+
+    // Unreal jump() overlaps with pb jumping -> jumping in air effectively toggles auto-jump ON permanently
+    // hardcoding this value prevents that
+    JumpMaxCount = 1;
+
+    // this may be redundant as it was not obvious what value was capping speedz
+    IConsoleVariable* CVarMaxSpeed = IConsoleManager::Get().FindConsoleVariable(TEXT("sv_maxspeed"));
+    if (CVarMaxSpeed)
+    {
+        CVarMaxSpeed->Set(50000.0f, ECVF_SetByCode); // Default is usually 320.0 (in HL units)
+    }
 }
 
-void AXmasCharacter::BeginPlay()
+void AMyPBPlayerCharacter::BeginPlay()
 {
     Super::BeginPlay();
 
@@ -34,36 +51,49 @@ void AXmasCharacter::BeginPlay()
     }
 }
 
-void AXmasCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void AMyPBPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
     Super::SetupPlayerInputComponent(PlayerInputComponent);
 
     if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
     {
-        EnhancedInputComponent->BindAction(MoveAction,              ETriggerEvent::Triggered, this,     &AXmasCharacter::Move);
-        EnhancedInputComponent->BindAction(LookAction,              ETriggerEvent::Triggered, this,     &AXmasCharacter::Look);
-        EnhancedInputComponent->BindAction(JumpAction,              ETriggerEvent::Started, this,       &AXmasCharacter::Jump);
-        EnhancedInputComponent->BindAction(JumpAction,              ETriggerEvent::Completed,this,      &AXmasCharacter::StopJumping);
-        EnhancedInputComponent->BindAction(InteractAction,          ETriggerEvent::Started, this,       &AXmasCharacter::Interact);
-        EnhancedInputComponent->BindAction(TogglePlacementAction,   ETriggerEvent::Started, this,       &AXmasCharacter::TogglePlacement);
-        EnhancedInputComponent->BindAction(PrimaryAction,           ETriggerEvent::Started, this,       &AXmasCharacter::HandPrimary);
+        EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyPBPlayerCharacter::Move);
+        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyPBPlayerCharacter::Look);
+        EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AMyPBPlayerCharacter::Jump);
+        EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AMyPBPlayerCharacter::StopJumping);
+        EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &AMyPBPlayerCharacter::Interact);
+        EnhancedInputComponent->BindAction(TogglePlacementAction, ETriggerEvent::Started, this, &AMyPBPlayerCharacter::TogglePlacement);
+        EnhancedInputComponent->BindAction(PrimaryAction, ETriggerEvent::Started, this, &AMyPBPlayerCharacter::HandPrimary);
     }
 }
 
-void AXmasCharacter::Move(const FInputActionValue& Value)
+void AMyPBPlayerCharacter::Move(const FInputActionValue& Value)
 {
     FVector2D MovementVector = Value.Get<FVector2D>();
 
     if (Controller != nullptr)
     {
-        // Simply feed the raw X/Y scale into the actor's forward and right vectors.
-        // The PB Movement component handles slope alignment, air control, and velocity internally!
-        AddMovementInput(GetActorForwardVector(), MovementVector.Y);
-        AddMovementInput(GetActorRightVector(), MovementVector.X);
+        const FRotator Rotation = Controller->GetControlRotation();
+        const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+        const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+        const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+        AddMovementInput(ForwardDirection, MovementVector.Y);
+        AddMovementInput(RightDirection, MovementVector.X);
+    }
+    if (GetCharacterMovement())
+    {
+        FString DebugMsg = FString::Printf(TEXT("Input: (%.2f, %.2f) | MaxSpeed: %.1f | CurrentVelocity: %.1f"),
+            MovementVector.X, MovementVector.Y,
+            GetCharacterMovement()->GetMaxSpeed(),
+            GetCharacterMovement()->Velocity.Size());
+
+        GEngine->AddOnScreenDebugMessage(1, 0.0f, FColor::Cyan, DebugMsg);
     }
 }
 
-void AXmasCharacter::Look(const FInputActionValue& Value)
+void AMyPBPlayerCharacter::Look(const FInputActionValue& Value)
 {
     FVector2D LookAxisVector = Value.Get<FVector2D>();
 
@@ -74,7 +104,7 @@ void AXmasCharacter::Look(const FInputActionValue& Value)
     }
 }
 
-void AXmasCharacter::Interact()
+void AMyPBPlayerCharacter::Interact()
 {
     if (GEngine)
     {
@@ -83,7 +113,7 @@ void AXmasCharacter::Interact()
     }
 }
 
-void AXmasCharacter::HandPrimary()
+void AMyPBPlayerCharacter::HandPrimary()
 {
     if (GEngine)
     {
@@ -97,7 +127,7 @@ void AXmasCharacter::HandPrimary()
     }
 }
 
-void AXmasCharacter::TogglePlacement()
+void AMyPBPlayerCharacter::TogglePlacement()
 {
     bIsPlacementMode = !bIsPlacementMode;
     if (GEngine)
@@ -108,7 +138,7 @@ void AXmasCharacter::TogglePlacement()
     }
     if (bIsPlacementMode)
     {
-        GetWorldTimerManager().SetTimer(PlacementTimerHandle, this, &AXmasCharacter::PlacementPreviewTick, 0.033f, true);
+        GetWorldTimerManager().SetTimer(PlacementTimerHandle, this, &AMyPBPlayerCharacter::PlacementPreviewTick, 0.033f, true);
         if (GetWorld())
         {
             FActorSpawnParameters SpawnParams;
@@ -116,7 +146,7 @@ void AXmasCharacter::TogglePlacement()
 
             if (PropToSpawnClass)
             {
-            ActivePreviewActor = GetWorld()->SpawnActor<AXmasActor>(PropToSpawnClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+                ActivePreviewActor = GetWorld()->SpawnActor<AXmasActor>(PropToSpawnClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
             }
 
         }
@@ -132,7 +162,7 @@ void AXmasCharacter::TogglePlacement()
     }
 }
 
-void AXmasCharacter::PlacementPreviewTick()
+void AMyPBPlayerCharacter::PlacementPreviewTick()
 {
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC || !PC->PlayerCameraManager) return;
@@ -181,7 +211,7 @@ void AXmasCharacter::PlacementPreviewTick()
     }
 }
 
-void AXmasCharacter::PerformInteractionCheck()
+void AMyPBPlayerCharacter::PerformInteractionCheck()
 {
     if (!GetWorld() || !GetController()) return;
 
@@ -228,8 +258,17 @@ void AXmasCharacter::PerformInteractionCheck()
     }
 }
 
-void AXmasCharacter::Tick(float DeltaTime)
+void AMyPBPlayerCharacter::Tick(float DeltaTime)
 {
 
+}
+
+void AMyPBPlayerCharacter::Jump()
+{
+    // Only allow Jump() to process if we are currently on the ground!
+    if (GetCharacterMovement() && GetCharacterMovement()->IsMovingOnGround())
+    {
+        Super::Jump();
+    }
 }
 
