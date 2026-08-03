@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Character/PBPlayerCharacter.h"
 #include "GameFramework/Character.h"
 #include "XmasCharacter.generated.h"
 
@@ -14,7 +15,7 @@ struct FInputActionValue;
 class AXmasActor;
 
 UCLASS()
-class XMAS_API AXmasCharacter : public ACharacter
+class XMAS_API AXmasCharacter : public APBPlayerCharacter
 {
 	GENERATED_BODY()
 
@@ -29,6 +30,9 @@ protected:
 
 	//movement
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+public:
+	virtual void Jump() override;
 
 	// Input Callbacks
 	void Move(const FInputActionValue& Value);
@@ -37,7 +41,7 @@ protected:
 	void Interact();
 	void HandPrimary();
 
-//PLACEMENT
+	//PLACEMENT
 protected:
 	void TogglePlacement();
 	

@@ -9,7 +9,7 @@
 #include "PhysicsMovementComponent.h"
 #include "XmasActor.h"
 
-AXmasCharacter::AXmasCharacter(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer.SetDefaultSubobjectClass<UPhysicsMovementComponent>(ACharacter::CharacterMovementComponentName))
+AXmasCharacter::AXmasCharacter(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
     PrimaryActorTick.bCanEverTick = true;
 
@@ -18,6 +18,8 @@ AXmasCharacter::AXmasCharacter(const FObjectInitializer& ObjectInitializer) : Su
     FirstPersonCamera->SetupAttachment(RootComponent);
     FirstPersonCamera->SetRelativeLocation(FVector(0.f, 0.f, 64.f));
     FirstPersonCamera->bUsePawnControlRotation = true; // Camera rotates with mouse
+    
+    JumpMaxCount = 1;
 }
 
 void AXmasCharacter::BeginPlay()
@@ -32,6 +34,15 @@ void AXmasCharacter::BeginPlay()
             Subsystem->AddMappingContext(DefaultMappingContext, 0);
         }
     }
+}
+
+void AXmasCharacter::Jump()
+{
+    // you need this in addition to the constructor maxjump = 1 to prevent the pb jumping in air to cause auto-jump
+    if (GetCharacterMovement() && GetCharacterMovement()->IsMovingOnGround())
+    {
+        Super::Jump();
+    } 
 }
 
 void AXmasCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -56,10 +67,23 @@ void AXmasCharacter::Move(const FInputActionValue& Value)
 
     if (Controller != nullptr)
     {
-        // Simply feed the raw X/Y scale into the actor's forward and right vectors.
-        // The PB Movement component handles slope alignment, air control, and velocity internally!
-        AddMovementInput(GetActorForwardVector(), MovementVector.Y);
-        AddMovementInput(GetActorRightVector(), MovementVector.X);
+        const FRotator Rotation = Controller->GetControlRotation();
+        const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+        const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+        const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+        AddMovementInput(ForwardDirection, MovementVector.Y);
+        AddMovementInput(RightDirection, MovementVector.X);
+    }
+    if (GetCharacterMovement())
+    {
+        FString DebugMsg = FString::Printf(TEXT("Input: (%.2f, %.2f) | MaxSpeed: %.1f | CurrentVelocity: %.1f"),
+            MovementVector.X, MovementVector.Y,
+            GetCharacterMovement()->GetMaxSpeed(),
+            GetCharacterMovement()->Velocity.Size());
+
+        GEngine->AddOnScreenDebugMessage(1, 0.0f, FColor::Cyan, DebugMsg);
     }
 }
 
