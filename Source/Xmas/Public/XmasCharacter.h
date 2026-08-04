@@ -27,6 +27,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	//movement
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -50,16 +51,48 @@ protected:
 	FTimerHandle PlacementTimerHandle;
 
 	void PlacementPreviewTick();
+
+	// Server-only bookkeeping: the actor currently being previewed/placed by this character.
+	// Not replicated — only the server (or a listen-server host, which is also the server for
+	// its own pawn) ever needs this pointer. Every other client just sees the actor itself,
+	// since it's a real replicated actor rather than a per-client cosmetic.
 	UPROPERTY()
 	AXmasActor* ActivePreviewActor;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
 	TSubclassOf<class AXmasActor> PropToSpawnClass;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
+	float MaxPlacementDistance = 1000.f;
+
+	// The preview ghost must be visible to every player, so it's spawned and moved by the
+	// server rather than as a client-local cosmetic. The owning client drives it by tracing
+	// locally (it's the only one with an up-to-date camera) and relaying the result here.
+	UFUNCTION(Server, Reliable)
+	void ServerBeginPreview();
+
+	UFUNCTION(Server, Reliable)
+	void ServerEndPreview();
+
+	UFUNCTION(Server, Unreliable)
+	void ServerUpdatePreviewLocation(FVector Location);
+
+	UFUNCTION(Server, Reliable)
+	void ServerCommitPlacement();
+
+	// Does the actual trace-and-invoke. Only ever called from ServerInteract_Implementation, so
+	// it always runs with authority — trusts the server's own knowledge of this character's
+	// position/view rather than anything supplied by the client.
 	void PerformInteractionCheck();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
 	float InteractionDistance = 250.f;
+
+	// Client calls this to request an interaction; the server performs its own trace rather than
+	// trusting a client-reported hit actor, so a client can't force-trigger an interact on an
+	// arbitrary actor it doesn't actually have line-of-sight/range on.
+	UFUNCTION(Server, Reliable)
+	void ServerInteract();
 
 public:	
 

@@ -10,8 +10,8 @@ UCLASS()
 class XMAS_API AXmasActor : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 	// Sets default values for this actor's properties
 	AXmasActor();
 
@@ -22,10 +22,8 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class UStaticMeshComponent* PropMeshComponent;
 
-public:	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
-	void PlaceProp();
 
 };

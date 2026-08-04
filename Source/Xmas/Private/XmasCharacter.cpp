@@ -6,8 +6,8 @@
 
 #include "GameInteractable.h"
 #include "InteractableComponent.h"
-#include "PhysicsMovementComponent.h"
 #include "XmasActor.h"
+#include "XmasPlacementComponent.h"
 
 AXmasCharacter::AXmasCharacter(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -34,6 +34,19 @@ void AXmasCharacter::BeginPlay()
             Subsystem->AddMappingContext(DefaultMappingContext, 0);
         }
     }
+}
+
+void AXmasCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    // Prevents an orphaned ghost if the owning player disconnects mid-preview (ActivePreviewActor
+    // is server-only bookkeeping, so this only ever does something meaningful on the server).
+    if (ActivePreviewActor)
+    {
+        ActivePreviewActor->Destroy();
+        ActivePreviewActor = nullptr;
+    }
+
+    Super::EndPlay(EndPlayReason);
 }
 
 void AXmasCharacter::Jump()
@@ -103,8 +116,14 @@ void AXmasCharacter::Interact()
     if (GEngine)
     {
         GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Yellow, TEXT("Interacted!"));
-        PerformInteractionCheck();
     }
+
+    ServerInteract();
+}
+
+void AXmasCharacter::ServerInteract_Implementation()
+{
+    PerformInteractionCheck();
 }
 
 void AXmasCharacter::HandPrimary()
@@ -113,12 +132,66 @@ void AXmasCharacter::HandPrimary()
     {
         GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Primary Action Started"));
     }
-    if (bIsPlacementMode && ActivePreviewActor)
+    if (bIsPlacementMode)
     {
-        ActivePreviewActor->PlaceProp();
-        ActivePreviewActor = nullptr;
+        ServerCommitPlacement();
+
         bIsPlacementMode = false;
+        GetWorldTimerManager().ClearTimer(PlacementTimerHandle);
     }
+}
+
+void AXmasCharacter::ServerBeginPreview_Implementation()
+{
+    if (!PropToSpawnClass || !GetWorld() || ActivePreviewActor)
+    {
+        return;
+    }
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    SpawnParams.Owner = this;
+
+    ActivePreviewActor = GetWorld()->SpawnActor<AXmasActor>(PropToSpawnClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+}
+
+void AXmasCharacter::ServerEndPreview_Implementation()
+{
+    if (ActivePreviewActor)
+    {
+        ActivePreviewActor->Destroy();
+        ActivePreviewActor = nullptr;
+    }
+}
+
+void AXmasCharacter::ServerUpdatePreviewLocation_Implementation(FVector Location)
+{
+    if (!ActivePreviewActor)
+    {
+        return;
+    }
+
+    if (FVector::Dist(GetActorLocation(), Location) > MaxPlacementDistance)
+    {
+        return;
+    }
+
+    ActivePreviewActor->SetActorLocation(Location);
+}
+
+void AXmasCharacter::ServerCommitPlacement_Implementation()
+{
+    if (!ActivePreviewActor)
+    {
+        return;
+    }
+
+    if (UXmasPlacementComponent* PlacementComponent = ActivePreviewActor->FindComponentByClass<UXmasPlacementComponent>())
+    {
+        PlacementComponent->PlaceProp();
+    }
+
+    ActivePreviewActor = nullptr;
 }
 
 void AXmasCharacter::TogglePlacement()
@@ -133,26 +206,12 @@ void AXmasCharacter::TogglePlacement()
     if (bIsPlacementMode)
     {
         GetWorldTimerManager().SetTimer(PlacementTimerHandle, this, &AXmasCharacter::PlacementPreviewTick, 0.033f, true);
-        if (GetWorld())
-        {
-            FActorSpawnParameters SpawnParams;
-            SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-            if (PropToSpawnClass)
-            {
-            ActivePreviewActor = GetWorld()->SpawnActor<AXmasActor>(PropToSpawnClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-            }
-
-        }
+        ServerBeginPreview();
     }
     else
     {
         GetWorldTimerManager().ClearTimer(PlacementTimerHandle);
-        if (ActivePreviewActor)
-        {
-            ActivePreviewActor->Destroy();
-            ActivePreviewActor = nullptr;
-        }
+        ServerEndPreview();
     }
 }
 
@@ -164,14 +223,12 @@ void AXmasCharacter::PlacementPreviewTick()
     FVector StartLocation = PC->PlayerCameraManager->GetCameraLocation();
     FVector ForwardVector = PC->PlayerCameraManager->GetCameraRotation().Vector();
 
-    FVector EndLocation = StartLocation + (ForwardVector * 1000.f);
+    FVector EndLocation = StartLocation + (ForwardVector * MaxPlacementDistance);
 
+    // The preview actor's mesh is Overlap-only (see AXmasActor's default collision setup), and a
+    // single-channel trace only reports blocking hits, so the ghost can never hit itself here.
     FCollisionQueryParams QueryParams;
     QueryParams.AddIgnoredActor(this);
-    if (ActivePreviewActor)
-    {
-        QueryParams.AddIgnoredActor(ActivePreviewActor);
-    }
 
     FHitResult HitResult;
     bool bHit = GetWorld()->LineTraceSingleByChannel(
@@ -197,10 +254,7 @@ void AXmasCharacter::PlacementPreviewTick()
 
     if (bHit)
     {
-        if (ActivePreviewActor)
-        {
-            ActivePreviewActor->SetActorLocation(HitResult.ImpactPoint);
-        }
+        ServerUpdatePreviewLocation(HitResult.ImpactPoint);
         DrawDebugSphere(GetWorld(), HitResult.ImpactPoint, 15.f, 8, FColor::Blue, false, 0.04f);
     }
 }

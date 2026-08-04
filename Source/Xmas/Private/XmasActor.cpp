@@ -9,6 +9,9 @@ AXmasActor::AXmasActor()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 
+	bReplicates = true;
+	SetReplicateMovement(true);
+
 	PropMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PropMeshComponent"));
 	RootComponent = PropMeshComponent;
 	PropMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
@@ -20,7 +23,7 @@ AXmasActor::AXmasActor()
 void AXmasActor::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 }
 
 // Called every frame
@@ -29,13 +32,3 @@ void AXmasActor::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 }
-
-void AXmasActor::PlaceProp()
-{
-	if (PropMeshComponent)
-	{
-		PropMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		PropMeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
-	}
-}
-
