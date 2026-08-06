@@ -1,17 +1,17 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-
 #include "CoreMinimal.h"
 #include "Character/PBPlayerCharacter.h"
 #include "GameFramework/Character.h"
 #include "XmasCharacter.generated.h"
 
-class UCameraComponent;
-class UInputMappingContext;
-class UInputAction;
-struct FInputActionValue;
-
+class UCameraComponent;		// Actor Component
+class UInputMappingContext;	// Input / Movement
+class UInputAction;			// Input / Movement
+struct FInputActionValue;	// Input / Movement
+class UDownableComponent;	// Game State Component
+class UHealthComponent;		// Game State Component
 class AXmasActor;
 
 UCLASS()
@@ -28,25 +28,23 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	//movement
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
-public:
-	virtual void Jump() override;
-
-	// Input Callbacks
-	void Move(const FInputActionValue& Value);
-	void Look(const FInputActionValue& Value);
-
-	void Interact();
-	void HandPrimary();
-
-	//PLACEMENT
 protected:
-	void TogglePlacement();
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Health")
+	UHealthComponent* HealthComponent;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Health")
+	UDownableComponent* DownableComponent;
+	
+//PLACEMENT-----------------------------------------------
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
+	float MaxPlacementDistance = 1000.f;
+
 	bool bIsPlacementMode = false;
+
+	void TogglePlacement();
 
 	FTimerHandle PlacementTimerHandle;
 
@@ -61,9 +59,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
 	TSubclassOf<class AXmasActor> PropToSpawnClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
-	float MaxPlacementDistance = 1000.f;
 
 	// The preview ghost must be visible to every player, so it's spawned and moved by the
 	// server rather than as a client-local cosmetic. The owning client drives it by tracing
@@ -80,6 +75,8 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerCommitPlacement();
 
+// INTERACTION -----------------------------------------------
+
 	// Does the actual trace-and-invoke. Only ever called from ServerInteract_Implementation, so
 	// it always runs with authority — trusts the server's own knowledge of this character's
 	// position/view rather than anything supplied by the client.
@@ -94,13 +91,27 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerInteract();
 
-public:	
-
+public:
 	// First-Person Camera
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FirstPersonCamera;
 
-//INPUT
+//INPUT -----------------------------------------------
+	
+protected:
+	//movement
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+public:
+	virtual void Jump() override;
+
+	// Input Callbacks
+	void Move(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+
+	void Interact();
+	void HandPrimary();
+
 public:
 	// Enhanced Input Assets (assigned in the Blueprint child later)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
@@ -108,6 +119,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	UInputAction* MoveAction;
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;

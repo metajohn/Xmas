@@ -1,4 +1,7 @@
 #include "XmasCharacter.h"
+
+#include "DownableComponent.h"
+#include "HealthComponent.h"
 #include "Camera/CameraComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -19,6 +22,9 @@ AXmasCharacter::AXmasCharacter(const FObjectInitializer& ObjectInitializer) : Su
     FirstPersonCamera->bUsePawnControlRotation = true; // Camera rotates with mouse
     
     JumpMaxCount = 1;
+    
+    HealthComponent = CreateDefaultSubobject<UHealthComponent>(TEXT("HealthComponent"));
+    DownableComponent = CreateDefaultSubobject<UDownableComponent>(TEXT("DownableComponent"));
 }
 
 void AXmasCharacter::BeginPlay()
@@ -75,6 +81,12 @@ void AXmasCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 
 void AXmasCharacter::Move(const FInputActionValue& Value)
 {
+    //constant state check so that getting revived always corrects movement
+    if (DownableComponent && DownableComponent->IsDowned())
+    {
+        return;
+    }
+    
     FVector2D MovementVector = Value.Get<FVector2D>();
 
     if (Controller != nullptr)
