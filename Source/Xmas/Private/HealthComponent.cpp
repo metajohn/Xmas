@@ -37,6 +37,7 @@ void UHealthComponent::ApplyDamage(float DamageAmount, AActor* DamageInstigator)
 	if (IsDepleted())
 	{
 		OnHealthDepleted.Broadcast(DamageInstigator);
+		
 	}
 }
 

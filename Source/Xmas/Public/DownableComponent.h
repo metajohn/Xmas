@@ -5,6 +5,8 @@
 #include "GameInteractable.h"
 #include "DownableComponent.generated.h"
 
+class UHealthComponent;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDownedStateChangedSignature, bool, bIsDowned);
 
 // Drop-in ActorComponent giving its owning actor a server-authoritative "downed" flag, replicated
@@ -57,4 +59,7 @@ protected:
 
 	UFUNCTION()
 	void HandleHealthDepleted(AActor* DamageInstigator);
+	
+	UPROPERTY()
+	UHealthComponent* HealthComponent;
 };

@@ -167,6 +167,7 @@ void AXmasCharacter::PerformInteractionCheck()
 
     if (bHit && HitResult.GetActor())
     {
+        GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, HitResult.GetActor()->GetName());
         AActor* HitActor = HitResult.GetActor();
 
         if (HitActor->Implements<UGameInteractable>())
